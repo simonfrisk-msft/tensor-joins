@@ -1,6 +1,6 @@
 #include <random>
 #include <iostream>
-#include <tuple>
+#include "tuple.h"
 #include <vector>
 #include <random>
 #include <chrono>
@@ -14,9 +14,8 @@ void Dataset::print_summary() {
 void Dataset::print_data(int maxCount) {
     std::cout << "-----------------------------" << std::endl;
     int i = 0;
-    for (std::tuple<int,int> tuple : data) {
-        auto [x, y] = tuple;
-        std::cout << "(" << x << ", " << y << ")" << std::endl;
+    for (Tuple tuple : data) {
+        std::cout << "(" << tuple.x << ", " << tuple.y << ")" << std::endl;
         i++;
         if(i == maxCount) {
             std::cout << "..." << std::endl;
@@ -31,7 +30,11 @@ int Dataset::tuple_count() {
 }
 
 int Dataset::size_bytes() {
-    return data.size() * sizeof(std::tuple<int,int>);
+    return data.size() * sizeof(Tuple);
+}
+
+Relation Dataset::relation() {
+    return data.data();
 }
 
 RandomDataset::RandomDataset(int domX, int domY, float probability) {
@@ -44,7 +47,7 @@ RandomDataset::RandomDataset(int domX, int domY, float probability) {
         for (int j = 0; j < domY; j++) {
             float r = distribution(generator);
             if(r <= probability) {
-                data.push_back(std::make_tuple(i,j));
+                data.push_back(Tuple { x: i, y: j });
             }
         }
     }

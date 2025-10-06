@@ -1,14 +1,16 @@
 #pragma once
-#include <tuple>
+#include "tuple.h"
 #include <vector>
 
 class Dataset {
+protected:
+    std::vector<Tuple> data;
 public:
-    std::vector<std::tuple<int,int>> data;
     void print_summary();
     void print_data(int maxCount);
     int tuple_count();
     int size_bytes();
+    Relation relation();
 };
 
 class RandomDataset: public Dataset {

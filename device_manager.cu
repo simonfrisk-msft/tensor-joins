@@ -5,7 +5,7 @@ __global__ void cuda_echo() {
     printf("GPU Test.\n");
 }
 
-__global__ void cuda_print(std::tuple<int,int>* relation, int n) {
+__global__ void cuda_print(Relation relation, int n) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     auto [x, y] = relation[idx];
     if (idx < n) {
@@ -13,10 +13,10 @@ __global__ void cuda_print(std::tuple<int,int>* relation, int n) {
     }
 }
 
-std::tuple<int,int>* DeviceManager::TransferDataToDevice(Dataset* ds) {
-    std::tuple<int,int>* deviceArray;
+Relation DeviceManager::TransferDataToDevice(Dataset* ds) {
+    Relation deviceArray;
     cudaMalloc(&deviceArray, ds->size_bytes());
-    cudaMemcpy(deviceArray, ds->data.data(), ds->size_bytes(), cudaMemcpyHostToDevice);
+    cudaMemcpy(deviceArray, ds->relation(), ds->size_bytes(), cudaMemcpyHostToDevice);
     relations.push_back(deviceArray);
     return deviceArray;
 }
@@ -26,12 +26,12 @@ void DeviceManager::Echo() {
     cudaDeviceSynchronize(); 
 }
 
-void DeviceManager::PrintRelation(std::tuple<int,int>* relation, int maxCount) {
+void DeviceManager::PrintRelation(Tuple* relation, int maxCount) {
     cuda_print<<<1,32>>>(relation, maxCount);
     cudaDeviceSynchronize(); 
 }
 
-~DeviceManager::DeviceManager() {
+DeviceManager::~DeviceManager() {
     for (auto& relation: relations) {
         cudaFree(relation);
     }

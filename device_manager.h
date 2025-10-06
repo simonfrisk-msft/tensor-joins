@@ -1,14 +1,14 @@
 #pragma once
 #include <vector>
-#include <tuple>
+#include "tuple.h"
 #include "dataset.h"
 
 class DeviceManager {
 private:
-    std::vector<std::tuple<int,int>*> relations;
+    std::vector<Relation> relations;
 public:
-    std::tuple<int,int>* TransferDataToDevice(Dataset* ds);
+    Relation TransferDataToDevice(Dataset* ds);
     void Echo();
-    void PrintRelation(std::tuple<int,int>* relation, int maxCount);
+    void PrintRelation(Relation relation, int maxCount);
     ~DeviceManager();
 };

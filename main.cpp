@@ -12,8 +12,8 @@ int main() {
     hd2->print_data(10);
     DeviceManager device;
     device.Echo();
-    std::tuple<int,int>* dd1 = device.TransferDataToDevice(hd1);
-    std::tuple<int,int>* dd2 = device.TransferDataToDevice(hd2);
+    Relation dd1 = device.TransferDataToDevice(hd1);
+    Relation dd2 = device.TransferDataToDevice(hd2);
     device.PrintRelation(dd1, 10);
     device.PrintRelation(dd2, 10);
 
