@@ -1,21 +1,26 @@
 #include <iostream>
 #include "dataset.h"
 #include "device_manager.h"
+#include "util.h"
 
 
 int main() {
-    Dataset* hd1 = new RandomDataset(100, 100, 0.5);
+    Timer td("Creating random dataset");
+    Dataset* hd1 = new RandomDataset(10000, 10000, 0.5);
     hd1->print_summary();
-    hd1->print_data(10);
-    Dataset* hd2 = new RandomDataset(100, 100, 0.5);
+    Dataset* hd2 = new RandomDataset(10000, 10000, 0.5);
     hd2->print_summary();
-    hd2->print_data(10);
+    td.finish();
+
+    Timer tt("Transfer to device");
     DeviceManager device;
-    device.Echo();
     Relation dd1 = device.TransferDataToDevice(hd1);
     Relation dd2 = device.TransferDataToDevice(hd2);
-    device.PrintRelation(dd1, 10);
-    device.PrintRelation(dd2, 10);
+    tt.finish();
+
+    Timer t1("Naive Join");
+    device.NaiveJoin(dd1,dd2, hd1->tuple_count(), hd2->tuple_count());
+    t1.finish();
 
     delete hd1;
     delete hd2;
