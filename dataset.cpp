@@ -26,6 +26,14 @@ void Dataset::print_data(int maxCount) {
     std::cout << "-----------------------------" << std::endl;
 }
 
+int Dataset::tuple_count() {
+    return data.size();
+}
+
+int Dataset::size_bytes() {
+    return data.size() * sizeof(std::tuple<int,int>);
+}
+
 RandomDataset::RandomDataset(int domX, int domY, float probability) {
     // Set up random generator
     unsigned seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
