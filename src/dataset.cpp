@@ -1,40 +1,13 @@
 #include <random>
 #include <iostream>
-#include "tuple.h"
 #include <vector>
 #include <random>
 #include <chrono>
 
 #include "dataset.h"
 
-void Dataset::print_summary() {
-    std::cout << "Dataset: " << data.size() << " tuples" << std::endl;
-}
-
-void Dataset::print_data(int maxCount) {
-    std::cout << "-----------------------------" << std::endl;
-    int i = 0;
-    for (Tuple tuple : data) {
-        std::cout << "(" << tuple.x << ", " << tuple.y << ")" << std::endl;
-        i++;
-        if(i == maxCount) {
-            std::cout << "..." << std::endl;
-            break;
-        }
-    }
-    std::cout << "-----------------------------" << std::endl;
-}
-
-int Dataset::tuple_count() {
-    return data.size();
-}
-
-int Dataset::size_bytes() {
-    return data.size() * sizeof(Tuple);
-}
-
 Relation Dataset::relation() {
-    return data.data();
+    return Relation(data.data(), data.size());
 }
 
 RandomDataset::RandomDataset(int domX, int domY, float probability) {

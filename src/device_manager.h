@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include <string>
-#include "tuple.h"
+#include "relation.h"
 #include "dataset.h"
 
 class DeviceManager {
@@ -11,6 +11,5 @@ private:
 public:
     Relation TransferDataToDevice(Dataset* ds);
     void PrintRelation(Relation relation, int maxCount);
-    void NaiveJoin(Relation rel1, Relation rel2, int n1, int n2);
     ~DeviceManager();
 };
