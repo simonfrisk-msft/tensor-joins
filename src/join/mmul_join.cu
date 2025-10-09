@@ -2,6 +2,8 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 #include <cstdio>
+#include <thrust/device_ptr.h>
+#include <thrust/scan.h>
 #include "../util.h"
 
 int roundUp32(int num) {
@@ -11,31 +13,53 @@ int roundUp32(int num) {
 __global__ void PrintMatrix(int8_t* matrix, int n, int m) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if(x < m && y < n)
-        printf("(%d, %d): %d\n", x, y, matrix[y + n * x]);
+    if(x < n && y < m && matrix[x + y * n] > 0)
+        printf("(%d, %d): %d\n", x, y, matrix[x + y * n]);
 }
 
 __global__ void PrintMatrix(int32_t* matrix, int n, int m) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if(x < m && y < n)
-        printf("(%d, %d): %d\n", x, y, matrix[y + n * x]);
+    if(x < n && y < m && matrix[x + y * n] > 0)
+        printf("(%d, %d): %d\n", x, y, matrix[x + y * n]);
 }
 
 __global__ void RelationToMatrix(Relation rel, int8_t* matrix, int stride) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if(idx < rel.count) {
         Tuple tuple = rel.data[idx];
-        matrix[tuple.x + stride * tuple.y] = 1.0;
+        matrix[tuple.x + tuple.y * stride] = 1.0;
     }
 }
 
-__global__ void MatrixToRelation(Relation out, int32_t* matrix, int n, int m, int* counter) {
+__global__ void CountOutputSizePerBlock(int32_t* matrix, int n, int m, int* outputSizePerBlock) {
+    __shared__ int count;
+    if (threadIdx.x == 0 && threadIdx.y == 0)
+        count = 0;
+    __syncthreads();
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if(x < m && y < n && matrix[x + m * y] > 0) {
-        int idx = atomicAdd(counter, 1);
-        out.data[idx] = Tuple{ x: x, y: y };
+    int block = blockIdx.x + blockIdx.y * blockDim.x;
+    if(x < n && y < m && matrix[x + y * n] > 0)
+        atomicAdd(&count, 1);
+    if (threadIdx.x == 0 && threadIdx.y == 0)
+        outputSizePerBlock[block] = count;
+}
+
+__global__ void MatrixToRelation(Relation out, int32_t* matrix, int n, int m, int* prefixOutputSizePerBlock) {
+    __shared__ int count;
+    if (threadIdx.x == 0 && threadIdx.y == 0)
+        count = 0;
+    __syncthreads();
+    int block = blockIdx.x + blockIdx.y * blockDim.x;
+    int globalOffset = prefixOutputSizePerBlock[block];
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    //if(x < n && y < m && matrix[x + y * n] > 0)
+        //printf("(%d, %d): %d\n", x, y, matrix[x + y * n]);
+    if(x < n && y < m && matrix[x + y * n] > 0) {
+        int idx = atomicAdd(&count, 1);
+        out.data[globalOffset + idx] = Tuple{ x: x, y: y };
     }
 }
 
@@ -71,10 +95,12 @@ Relation MMUL_Join::join(Relation rel1, Relation rel2) {
 
     t.lap("Init");
 
-    RelationToMatrix<<<numBlocksM1, blockSizeRelToMat>>>(rel1, M1, dimA);
-    RelationToMatrix<<<numBlocksM2, blockSizeRelToMat>>>(rel2, M2, dimB);
+    if(rel1.count != 0)
+        RelationToMatrix<<<numBlocksM1, blockSizeRelToMat>>>(rel1, M1, dimA);
+    if(rel2.count != 0)
+        RelationToMatrix<<<numBlocksM2, blockSizeRelToMat>>>(rel2, M2, dimB);
     CUDA_CHECK(cudaDeviceSynchronize());
-    
+
     t.lap("Rel to Matrix");
 
     cublasStatus_t mmul_status = cublasGemmEx(handle, 
@@ -87,37 +113,46 @@ Relation MMUL_Join::join(Relation rel1, Relation rel2) {
         CUBLAS_COMPUTE_32I,
         CUBLAS_GEMM_DEFAULT);
 
+    cudaDeviceSynchronize();
     t.lap("Core MMUL");
 
     CUBLAS_CHECK(mmul_status);
     CUDA_CHECK(cudaGetLastError());
-    CUDA_CHECK(cudaDeviceSynchronize());
 
-    CUDA_CHECK(cudaFree(M1));
-    CUDA_CHECK(cudaFree(M2));
+    int blockSizeMatToRel = 32;
+    int blockCountX = (dimC + blockSizeMatToRel - 1) / blockSizeMatToRel;
+    int blockCountY = (dimA + blockSizeMatToRel - 1) / blockSizeMatToRel;
+    int blockCount = blockCountX * blockCountY;
 
-    int *counter;
-    CUDA_CHECK(cudaMalloc(&counter, sizeof(int)));
-    CUDA_CHECK(cudaMemset(counter, 0, sizeof(int)));
+    int* outputSizePerBlock;
+    int* prefixOutputSizePerBlock;
+    CUDA_CHECK(cudaMalloc(&outputSizePerBlock, blockCount * sizeof(int)));
+    CUDA_CHECK(cudaMalloc(&prefixOutputSizePerBlock, (blockCount+1) * sizeof(int)));
+
+    CountOutputSizePerBlock<<<dim3(blockCountX, blockCountY), dim3(blockSizeMatToRel, blockSizeMatToRel)>>>(outMatrix, dimA, dimC, outputSizePerBlock);
+    cudaDeviceSynchronize();
+    CUDA_CHECK(cudaGetLastError());
+
+    thrust::device_ptr<int> thrust_ptr(outputSizePerBlock);
+    thrust::device_ptr<int> thrust_prefix_ptr(prefixOutputSizePerBlock);
+    thrust::inclusive_scan(thrust_ptr, thrust_ptr + blockCount, thrust_prefix_ptr+1);
+
     Relation outRel;
-    CUDA_CHECK(cudaMalloc(&outRel.data, rel1.count * rel2.count * sizeof(Tuple)));
+    CUDA_CHECK(cudaMemcpy(&outRel.count, prefixOutputSizePerBlock + blockCount, sizeof(int), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMalloc(&outRel.data, outRel.count * sizeof(Tuple)));
 
-    int blockSizeMat2Rel = 32;
-    int blockCountX = (dimC + blockSizeMat2Rel - 1) / blockSizeMat2Rel;
-    int blockCountY = (dimA + blockSizeMat2Rel - 1) / blockSizeMat2Rel;
+    t.lap("Prefix sum and output allocation");
 
-    MatrixToRelation<<<dim3(blockCountX, blockCountY), dim3(blockSizeMat2Rel, blockSizeMat2Rel)>>>(outRel, outMatrix, dimA, dimC, counter);
-    CUDA_CHECK(cudaDeviceSynchronize());
-
+    MatrixToRelation<<<dim3(blockCountX, blockCountY), dim3(blockSizeMatToRel, blockSizeMatToRel)>>>(outRel, outMatrix, dimA, dimC, prefixOutputSizePerBlock);
+    cudaDeviceSynchronize();
+    CUDA_CHECK(cudaGetLastError());
     t.lap("Matrix to Relation");
 
-    cudaMemcpy(&outRel.count, counter, sizeof(int), cudaMemcpyDeviceToHost);
-
-    cudaFree(outMatrix);
-    cudaFree(counter);
-
+    CUDA_CHECK(cudaFree(outMatrix));
+    CUDA_CHECK(cudaFree(M1));
+    CUDA_CHECK(cudaFree(M2));
+    
     t.finish();
-
     cublasDestroy(handle);
 
     return outRel;

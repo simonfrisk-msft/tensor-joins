@@ -22,12 +22,12 @@ void Relation::free() {
 }
 
 void Relation::print_gpu() {
-    printf("------------ (%d tuples)\n", count);
+    printf("------------ (Relation)\n");
     int blockSize = 256;
     int blocks = (count + blockSize - 1) / blockSize;
     print_gpu_kernel<<<blocks, blockSize>>>(data, count);
     cudaDeviceSynchronize();
-    printf("------------\n");
+    printf("------------ (%d tuples)\n", count);
 }
 
 void Relation::print_stats() {

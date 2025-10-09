@@ -19,7 +19,8 @@ void Timer::finish() {
     } else {
         std::cout << "(Timer) (" << name << ")"<< std::endl;
         for(int i = 0; i < lapLabels.size(); i++) {
-            std::chrono::duration<double> elapsed = lapTimes[i] - start;
+            auto previous = i == 0 ? start : lapTimes[i-1];
+            std::chrono::duration<double> elapsed = lapTimes[i] - previous;
             std::cout << "  (" << lapLabels[i] << "): " << elapsed.count() << " s" << std::endl;
         }
         std::cout << "  (Total): " << total.count() << " s" << std::endl;

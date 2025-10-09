@@ -2,9 +2,9 @@ import cudf
 import cupy as cp
 import time
 
-for p in [1.0, 0.3, 0.1, 0.03, 0.01, 0.003, 0.001]:
+for p in [0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001]:
     print("-------------------- Probability ", p)
-    N = 1000
+    N = 10000
     vals = cp.arange(1, N + 1)
     x = cp.repeat(vals, N)
     y = cp.tile(vals, N)

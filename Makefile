@@ -1,4 +1,7 @@
-NVCC := nvcc
+CUDA_DIR := /usr/local/cuda-13
+
+NVCC := $(CUDA_DIR)/bin/nvcc
+CUDA_LIBS = -L$(CUDA_DIR)/lib64
 CFLAGS := -lcublas
 
 SRC_DIR := src
@@ -16,7 +19,7 @@ build: $(BIN)
 
 $(BIN): $(OBJ_FILES)
 	@mkdir -p $(dir $@)
-	$(NVCC) -o $@ $^ $(CFLAGS)
+	$(NVCC) -o $@ $^ $(CUDA_LIBS) $(CFLAGS)
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cu
 	@mkdir -p $(dir $@)
