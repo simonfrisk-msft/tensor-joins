@@ -1,4 +1,5 @@
 #include "naive_join.h"
+#include <cstdio>
 
 __global__ void cuda_naive_join(Relation out, Relation rel1, Relation rel2, int n1, int n2, int* counter) {
     int xR1 = blockIdx.x * blockDim.x + threadIdx.x;
@@ -21,5 +22,9 @@ Relation Naive_Join::join(Relation rel1, Relation rel2) {
     dim3 blockDim(32, 32);
     dim3 gridDim(rel1.count / blockDim.x + 1, rel2.count / blockDim.y + 1);
     cuda_naive_join<<<gridDim, blockDim>>>(output, rel1, rel2, rel1.count, rel2.count, counter);
-    cudaFree(&output.data);
+
+    cudaDeviceSynchronize();
+    cudaMemcpy(&output.count, counter, sizeof(int), cudaMemcpyDeviceToHost);
+
+    return output;
 }

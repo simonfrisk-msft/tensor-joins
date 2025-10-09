@@ -1,5 +1,7 @@
 #pragma once
 #include "../relation.h"
+#include "../util.h"
+
 
 class BaseJoin {
 public:

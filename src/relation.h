@@ -11,4 +11,8 @@ public:
     Tuple* data;
     Relation();
     Relation(Tuple* data, int count);
+    void free();
+    void print_gpu();
+    void print_stats();
+    Relation transferToDevice();
 };
