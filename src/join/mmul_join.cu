@@ -2,6 +2,7 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 #include <cstdio>
+#include "../util.h"
 
 int roundUp32(int num) {
     return (num + 31) / 32 * 32;
@@ -23,8 +24,10 @@ __global__ void PrintMatrix(int32_t* matrix, int n, int m) {
 
 __global__ void RelationToMatrix(Relation rel, int8_t* matrix, int stride) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    Tuple tuple = rel.data[idx];
-    matrix[tuple.x * stride + tuple.y] = 1.0;
+    if(idx < rel.count) {
+        Tuple tuple = rel.data[idx];
+        matrix[tuple.x + stride * tuple.y] = 1.0;
+    }
 }
 
 __global__ void MatrixToRelation(Relation out, int32_t* matrix, int n, int m, int* counter) {
@@ -44,8 +47,10 @@ MMUL_Join::MMUL_Join(int a, int b, int c) {
 
 Relation MMUL_Join::join(Relation rel1, Relation rel2) {
     cublasHandle_t handle;
-    cublasStatus_t status = cublasCreate(&handle);
+    CUBLAS_CHECK(cublasCreate(&handle));
     cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH);
+
+    Timer t("MMUL Join");
 
     int alpha = 1;
     int beta = 0;
@@ -56,19 +61,23 @@ Relation MMUL_Join::join(Relation rel1, Relation rel2) {
     int M1Size = dimA * dimB * sizeof(int8_t);
     int M2Size = dimB * dimC * sizeof(int8_t);
     int outSize = dimA * dimC * sizeof(int32_t);
-    cudaMalloc(&M1, M1Size);
-    cudaMalloc(&M2, M2Size);
-    cudaMalloc(&outMatrix, outSize);
+    CUDA_CHECK(cudaMalloc(&M1, M1Size));
+    CUDA_CHECK(cudaMalloc(&M2, M2Size));
+    CUDA_CHECK(cudaMalloc(&outMatrix, outSize));
 
-    int blockSizeRel2Mat = 1024;
-    int numBlocksM1 = (rel1.count + blockSizeRel2Mat - 1) / blockSizeRel2Mat;
-    int numBlocksM2 = (rel2.count + blockSizeRel2Mat - 1) / blockSizeRel2Mat;
-    RelationToMatrix<<<numBlocksM1, blockSizeRel2Mat>>>(rel1, M1, dimA);
-    RelationToMatrix<<<numBlocksM2, blockSizeRel2Mat>>>(rel2, M2, dimB);
-    cudaDeviceSynchronize();
+    int blockSizeRelToMat = 1024;
+    int numBlocksM1 = (rel1.count + blockSizeRelToMat - 1) / blockSizeRelToMat;
+    int numBlocksM2 = (rel2.count + blockSizeRelToMat - 1) / blockSizeRelToMat;
 
-    Timer t1("Core Matrix Multiplication");
-    cublasStatus_t status2 = cublasGemmEx(handle, 
+    t.lap("Init");
+
+    RelationToMatrix<<<numBlocksM1, blockSizeRelToMat>>>(rel1, M1, dimA);
+    RelationToMatrix<<<numBlocksM2, blockSizeRelToMat>>>(rel2, M2, dimB);
+    CUDA_CHECK(cudaDeviceSynchronize());
+    
+    t.lap("Rel to Matrix");
+
+    cublasStatus_t mmul_status = cublasGemmEx(handle, 
         CUBLAS_OP_N, CUBLAS_OP_N,
         dimA, dimC, dimB, &alpha,
         M1, CUDA_R_8I, dimA,
@@ -76,24 +85,40 @@ Relation MMUL_Join::join(Relation rel1, Relation rel2) {
         &beta,
         outMatrix, CUDA_R_32I, dimC,
         CUBLAS_COMPUTE_32I,
-        CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-    t1.finish();
+        CUBLAS_GEMM_DEFAULT);
 
-    cublasDestroy(handle);
+    t.lap("Core MMUL");
+
+    CUBLAS_CHECK(mmul_status);
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    CUDA_CHECK(cudaFree(M1));
+    CUDA_CHECK(cudaFree(M2));
 
     int *counter;
-    cudaMalloc(&counter, sizeof(int));
-    cudaMemset(counter, 0, sizeof(int));
+    CUDA_CHECK(cudaMalloc(&counter, sizeof(int)));
+    CUDA_CHECK(cudaMemset(counter, 0, sizeof(int)));
     Relation outRel;
-    cudaMalloc(&outRel.data, rel1.count*rel2.count);
+    CUDA_CHECK(cudaMalloc(&outRel.data, rel1.count * rel2.count * sizeof(Tuple)));
 
     int blockSizeMat2Rel = 32;
     int blockCountX = (dimC + blockSizeMat2Rel - 1) / blockSizeMat2Rel;
     int blockCountY = (dimA + blockSizeMat2Rel - 1) / blockSizeMat2Rel;
+
     MatrixToRelation<<<dim3(blockCountX, blockCountY), dim3(blockSizeMat2Rel, blockSizeMat2Rel)>>>(outRel, outMatrix, dimA, dimC, counter);
-    cudaDeviceSynchronize();
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    t.lap("Matrix to Relation");
 
     cudaMemcpy(&outRel.count, counter, sizeof(int), cudaMemcpyDeviceToHost);
+
+    cudaFree(outMatrix);
+    cudaFree(counter);
+
+    t.finish();
+
+    cublasDestroy(handle);
 
     return outRel;
 }

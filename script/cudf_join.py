@@ -2,7 +2,7 @@ import cudf
 import cupy as cp
 import time
 
-for p in [1.0, 0.5, 0.1, 0.01]:
+for p in [1.0, 0.3, 0.1, 0.03, 0.01, 0.003, 0.001]:
     print("-------------------- Probability ", p)
     N = 1000
     vals = cp.arange(1, N + 1)

@@ -1,5 +1,6 @@
 #include "relation.h"
 #include <cstdio>
+#include "util.h"
 
 __global__ void print_gpu_kernel(Tuple* data, int count) {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
@@ -17,7 +18,7 @@ Relation::Relation(Tuple* tuples, int numberTuples) {
 Relation::Relation() { }
 
 void Relation::free() {
-    cudaFree(data);
+    CUDA_CHECK(cudaFree(data));
 }
 
 void Relation::print_gpu() {
@@ -35,7 +36,7 @@ void Relation::print_stats() {
 
 Relation Relation::transferToDevice() {
     Relation deviceRelation;
-    cudaMalloc(&deviceRelation.data, count * sizeof(Tuple));
-    cudaMemcpy(deviceRelation.data, data, count * sizeof(Tuple), cudaMemcpyHostToDevice);
+    CUDA_CHECK(cudaMalloc(&deviceRelation.data, count * sizeof(Tuple)));
+    CUDA_CHECK(cudaMemcpy(deviceRelation.data, data, count * sizeof(Tuple), cudaMemcpyHostToDevice));
     return deviceRelation;
 }
