@@ -9,15 +9,15 @@ void run(int dom1, int dom2, int dom3) {
     std::cout << "------------------ Domains: " << dom1 << ", " << dom2 << ", " << dom3 << std::endl;
 
     std::vector<float> probs;
-    //probs.push_back(1.0);
-    //probs.push_back(0.3);
-    //probs.push_back(0.1);
-    //probs.push_back(0.03);
+    probs.push_back(1.0);
+    probs.push_back(0.3);
+    probs.push_back(0.1);
+    probs.push_back(0.03);
     probs.push_back(0.01);
-    //probs.push_back(0.003);
-    //probs.push_back(0.001);
-    //probs.push_back(0.0003);
-    //probs.push_back(0.0001);
+    probs.push_back(0.003);
+    probs.push_back(0.001);
+    probs.push_back(0.0003);
+    probs.push_back(0.0001);
 
     for (float p : probs) {
         std::cout << "------------------ Probability " << p << std::endl;

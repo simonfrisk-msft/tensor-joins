@@ -8,9 +8,8 @@
 #include "../util.h"
 
 #define MM_BLOCK 32
-#define EPSILON 0.001
-typedef float IN_MAT;
-typedef float OUT_MAT;
+typedef int8_t IN_MAT;
+typedef int32_t OUT_MAT;
 
 int roundUpToBlock(int num) {
     return ((num + MM_BLOCK - 1) / MM_BLOCK) * MM_BLOCK;
@@ -32,7 +31,7 @@ __global__ void CountOutputSizePerBlock(OUT_MAT* matrix, int n, int m, int* outp
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int block = blockIdx.x + blockIdx.y * gridDim.x;
-    if(x < n && y < m && matrix[x + y * n] > EPSILON)
+    if(x < n && y < m && matrix[x + y * n] > 0)
         atomicAdd(&count, 1);
     __syncthreads();
     if (threadIdx.x == 0 && threadIdx.y == 0)
@@ -48,7 +47,7 @@ __global__ void MatrixToRelation(Relation out, OUT_MAT* matrix, int n, int m, in
     int globalOffset = prefixOutputSizePerBlock[block];
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if(x < n && y < m && matrix[x + y * n] > EPSILON) {
+    if(x < n && y < m && matrix[x + y * n] > 0) {
        int idx = atomicAdd(&count, 1);
        if(globalOffset + idx >= prefixOutputSizePerBlock[block+1]) {
             printf("PROBLEM b%d x%d y%d out(%d %d) idx%d\n", block, threadIdx.x, threadIdx.y, prefixOutputSizePerBlock[block+1], prefixOutputSizePerBlock[block], idx);
@@ -66,12 +65,12 @@ MMUL_Join::MMUL_Join(int a, int b, int c) {
 Relation MMUL_Join::join(Relation rel1, Relation rel2) {
     cublasHandle_t handle;
     CUBLAS_CHECK(cublasCreate(&handle));
-    //cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH);
+    cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH);
 
     Timer t("MMUL Join");
 
-    OUT_MAT alpha = 1;
-    OUT_MAT beta = 0;
+    int alpha = 1;
+    int beta = 0;
 
     IN_MAT *M1, *M2;
     OUT_MAT *outMatrix;
@@ -101,13 +100,15 @@ Relation MMUL_Join::join(Relation rel1, Relation rel2) {
 
     t.lap("Relation to Matrix");
 
-    cublasStatus_t mmul_status = cublasSgemm(handle, 
+    cublasStatus_t mmul_status = cublasGemmEx(handle, 
         CUBLAS_OP_N, CUBLAS_OP_N,
         dimA, dimC, dimB, &alpha,
-        M1, dimA,
-        M2, dimB,
+        M1, CUDA_R_8I, dimA,
+        M2, CUDA_R_8I, dimB,
         &beta,
-        outMatrix, dimC);
+        outMatrix, CUDA_R_32I, dimC,
+        CUDA_R_32I,
+        CUBLAS_GEMM_DEFAULT_TENSOR_OP);
 
     cudaDeviceSynchronize();
     CUBLAS_CHECK(mmul_status);
