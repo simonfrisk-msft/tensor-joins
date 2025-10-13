@@ -9,15 +9,15 @@ void run(int dom1, int dom2, int dom3) {
     std::cout << "------------------ Domains: " << dom1 << ", " << dom2 << ", " << dom3 << std::endl;
 
     std::vector<float> probs;
-    probs.push_back(1.0);
-    probs.push_back(0.3);
-    probs.push_back(0.1);
-    probs.push_back(0.03);
-    probs.push_back(0.01);
-    probs.push_back(0.003);
+    //probs.push_back(1.0);
+    //probs.push_back(0.3);
+    //probs.push_back(0.1);
+    //probs.push_back(0.03);
+    //probs.push_back(0.01);
+    //probs.push_back(0.003);
     probs.push_back(0.001);
-    probs.push_back(0.0003);
-    probs.push_back(0.0001);
+    //probs.push_back(0.0003);
+    //probs.push_back(0.0001);
 
     for (float p : probs) {
         std::cout << "------------------ Probability " << p << std::endl;
@@ -31,10 +31,10 @@ void run(int dom1, int dom2, int dom3) {
         Relation dd2 = hd2.relation().transferToDevice();
         tt.finish();
 
-        MMUL_Join mmul_join(dom1, dom2, dom3);
-        Relation mmul = mmul_join.join(dd1, dd2);
-        mmul.print_stats();
-        mmul.free();
+        Naive_Join joinObj;
+        Relation out = joinObj.join(dd1, dd2);
+        out.print_stats();
+        out.free();
 
         dd1.free();
         dd2.free();
@@ -44,5 +44,5 @@ void run(int dom1, int dom2, int dom3) {
 }
 
 void dense_experiment() {
-    run(10000, 1000, 10000);
+    run(1000, 1000, 1000);
 }
