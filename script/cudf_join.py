@@ -2,11 +2,11 @@ import cudf
 import cupy as cp
 import time
 
-for p in [0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001]:
+for p in [1.0, 0.3, 0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001]:
     print("-------------------- Probability ", p)
-    N1 = 10000
-    N2 = 1000
-    N3 = 10000
+    N1 = 1
+    N2 = 10000
+    N3 = 1
     domain_A = cp.arange(N1)
     domain_B = cp.arange(N2)
     domain_C = cp.arange(N3)
@@ -40,5 +40,5 @@ for p in [0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001]:
     end = time.perf_counter()
     elapsed = end - start
     print(f"Elapsed time: {elapsed:.6f} seconds")
-    print(f"Join result shape: {len(joined)} rows")
+    print(f"Join result shape: {len(result)} rows")
 

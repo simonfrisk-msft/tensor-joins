@@ -13,9 +13,9 @@ void run(int dom1, int dom2, int dom3) {
     //probs.push_back(0.3);
     //probs.push_back(0.1);
     //probs.push_back(0.03);
-    //probs.push_back(0.01);
+    probs.push_back(0.01);
     //probs.push_back(0.003);
-    probs.push_back(0.001);
+    //probs.push_back(0.001);
     //probs.push_back(0.0003);
     //probs.push_back(0.0001);
 
@@ -31,7 +31,7 @@ void run(int dom1, int dom2, int dom3) {
         Relation dd2 = hd2.relation().transferToDevice();
         tt.finish();
 
-        Naive_Join joinObj;
+        MMUL_Join joinObj(dom1, dom2, dom3);
         Relation out = joinObj.join(dd1, dd2);
         out.print_stats();
         out.free();
@@ -44,5 +44,5 @@ void run(int dom1, int dom2, int dom3) {
 }
 
 void dense_experiment() {
-    run(1000, 1000, 1000);
+    run(10000, 10000, 10000);
 }

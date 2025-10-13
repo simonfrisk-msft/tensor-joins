@@ -38,5 +38,6 @@ Relation Relation::transferToDevice() {
     Relation deviceRelation;
     CUDA_CHECK(cudaMalloc(&deviceRelation.data, count * sizeof(Tuple)));
     CUDA_CHECK(cudaMemcpy(deviceRelation.data, data, count * sizeof(Tuple), cudaMemcpyHostToDevice));
+    deviceRelation.count = count;
     return deviceRelation;
 }

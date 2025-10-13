@@ -7,6 +7,7 @@
 #include "dataset.h"
 
 Relation Dataset::relation() {
+    std::cout << "[Dataset Relation] " << data.size() << " tuples" << std::endl;
     return Relation(data.data(), data.size());
 }
 
