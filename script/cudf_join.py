@@ -2,11 +2,11 @@ import cudf
 import cupy as cp
 import time
 
-for p in [1.0, 0.3, 0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001]:
+for p in [0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001]:
     print("-------------------- Probability ", p)
-    N1 = 1
-    N2 = 10000
-    N3 = 1
+    N1 = 1000
+    N2 = 1000
+    N3 = 1000
     domain_A = cp.arange(N1)
     domain_B = cp.arange(N2)
     domain_C = cp.arange(N3)
@@ -35,10 +35,11 @@ for p in [1.0, 0.3, 0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001]:
     start = time.perf_counter()
 
     joined = R.merge(S, on=["B"], how="inner")
+    lap = time.perf_counter()
     result = joined.drop(columns=["B"]).drop_duplicates()
 
     end = time.perf_counter()
-    elapsed = end - start
-    print(f"Elapsed time: {elapsed:.6f} seconds")
+    print(f"Total time: {end - start:.6f} seconds")
+    print(f"Of which projection: {end - lap:.6f} seconds")
     print(f"Join result shape: {len(result)} rows")
 

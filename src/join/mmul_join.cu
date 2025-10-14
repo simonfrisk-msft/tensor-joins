@@ -28,10 +28,11 @@ __global__ void CountOutputSizePerBlock(OUT_MAT* matrix, int n, int m, int* outp
     if (threadIdx.x == 0 && threadIdx.y == 0)
         count = 0;
     __syncthreads();
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int block = blockIdx.x + blockIdx.y * gridDim.x;
-    if(x < n && y < m && matrix[x + y * n] > 0)
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int x = idx % n;
+    int y = idx / n;
+    int block = blockIdx.x;
+    if(x < n && y < m && matrix[idx] > 0)
         atomicAdd(&count, 1);
     __syncthreads();
     if (threadIdx.x == 0 && threadIdx.y == 0)
@@ -43,16 +44,14 @@ __global__ void MatrixToRelation(Relation out, OUT_MAT* matrix, int n, int m, in
     if (threadIdx.x == 0 && threadIdx.y == 0)
         count = 0;
     __syncthreads();
-    int block = blockIdx.x + blockIdx.y * gridDim.x;
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int x = idx % n;
+    int y = idx / n;
+    int block = blockIdx.x;
     int globalOffset = prefixOutputSizePerBlock[block];
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if(x < n && y < m && matrix[x + y * n] > 0) {
-       int idx = atomicAdd(&count, 1);
-       if(globalOffset + idx >= prefixOutputSizePerBlock[block+1]) {
-            printf("PROBLEM b%d x%d y%d out(%d %d) idx%d\n", block, threadIdx.x, threadIdx.y, prefixOutputSizePerBlock[block+1], prefixOutputSizePerBlock[block], idx);
-       }
-       out.data[globalOffset + idx] = Tuple{ x: x, y: y };
+    if(x < n && y < m && matrix[idx] > 0) {
+       int outIdx = atomicAdd(&count, 1);
+       out.data[globalOffset + outIdx] = Tuple{ x: x, y: y };
     }
 }
 
@@ -117,30 +116,28 @@ Relation MMUL_Join::join(Relation rel1, Relation rel2) {
     t.lap("Matrix Multiplication");
 
     // TODO I think it is better do do stripes (columns) than blocks, better memory alignment when computing the counts
-    int rel2MatrixBlock = 32;
-    int blockCountX = (dimA + rel2MatrixBlock - 1) / rel2MatrixBlock;
-    int blockCountY = (dimC + rel2MatrixBlock - 1) / rel2MatrixBlock;
-    int blockCount = blockCountX * blockCountY;
+    int relToMatrixBlock = 1024;
+    int blockCountRelToMatrix = (dimA*dimC + relToMatrixBlock - 1) / relToMatrixBlock;
 
     int* outputSizePerBlock;
     int* prefixOutputSizePerBlock;
-    CUDA_CHECK(cudaMalloc(&outputSizePerBlock, blockCount * sizeof(int)));
-    CUDA_CHECK(cudaMalloc(&prefixOutputSizePerBlock, (blockCount+1) * sizeof(int)));
+    CUDA_CHECK(cudaMalloc(&outputSizePerBlock, blockCountRelToMatrix * sizeof(int)));
+    CUDA_CHECK(cudaMalloc(&prefixOutputSizePerBlock, (blockCountRelToMatrix+1) * sizeof(int)));
     CUDA_CHECK(cudaMemset(prefixOutputSizePerBlock, 0, sizeof(int))); // set first offset to 0
 
-    CountOutputSizePerBlock<<<dim3(blockCountX, blockCountY), dim3(rel2MatrixBlock, rel2MatrixBlock)>>>(outMatrix, dimA, dimC, outputSizePerBlock);
+    CountOutputSizePerBlock<<<blockCountRelToMatrix, relToMatrixBlock>>>(outMatrix, dimA, dimC, outputSizePerBlock);
     cudaDeviceSynchronize();
     CUDA_CHECK(cudaGetLastError());
     t.lap("Output counting");
 
     thrust::device_ptr<int> thrust_ptr(outputSizePerBlock);
     thrust::device_ptr<int> thrust_prefix_ptr(prefixOutputSizePerBlock);
-    thrust::inclusive_scan(thrust_ptr, thrust_ptr + blockCount, thrust_prefix_ptr+1);
-    CUDA_CHECK(cudaMemcpy(&outRel.count, prefixOutputSizePerBlock + blockCount, sizeof(int), cudaMemcpyDeviceToHost));
+    thrust::inclusive_scan(thrust_ptr, thrust_ptr + blockCountRelToMatrix, thrust_prefix_ptr+1);
+    CUDA_CHECK(cudaMemcpy(&outRel.count, prefixOutputSizePerBlock + blockCountRelToMatrix, sizeof(int), cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaMalloc(&outRel.data, outRel.count * sizeof(Tuple)));
     t.lap("Prefix sum");
 
-    MatrixToRelation<<<dim3(blockCountX, blockCountY), dim3(rel2MatrixBlock, rel2MatrixBlock)>>>(outRel, outMatrix, dimA, dimC, prefixOutputSizePerBlock);
+    MatrixToRelation<<<blockCountRelToMatrix, relToMatrixBlock>>>(outRel, outMatrix, dimA, dimC, prefixOutputSizePerBlock);
     cudaDeviceSynchronize();
     CUDA_CHECK(cudaGetLastError());
     t.lap("Matrix to Relation");

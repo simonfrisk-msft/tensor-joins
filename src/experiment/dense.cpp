@@ -19,6 +19,7 @@ void run(int dom1, int dom2, int dom3) {
     probs.push_back(0.0003);
     probs.push_back(0.0001);
 
+
     for (float p : probs) {
         std::cout << "------------------ Probability " << p << std::endl;
 
@@ -44,5 +45,5 @@ void run(int dom1, int dom2, int dom3) {
 }
 
 void dense_experiment() {
-    run(10000, 10000, 10000);
+    run(100000, 1000, 100000);
 }
