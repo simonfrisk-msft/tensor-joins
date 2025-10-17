@@ -1,10 +1,10 @@
 #include "mmul_join.h"
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
-#include <cstdio>
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
-#include <limits>
+#include <sstream>
+#include <cstdio>
 #include "../util.h"
 
 #define MM_BLOCK 32
@@ -66,7 +66,9 @@ Relation MMUL_Join::join(Relation rel1, Relation rel2) {
     CUBLAS_CHECK(cublasCreate(&handle));
     cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH);
 
-    Timer t("MMUL Join");
+    std::stringstream name;
+    name << "MMUL Join (" << rel1.count << ", " << rel2.count << ")";
+    Timer t(name.str().c_str());
 
     int alpha = 1;
     int beta = 0;
@@ -115,7 +117,6 @@ Relation MMUL_Join::join(Relation rel1, Relation rel2) {
 
     t.lap("Matrix Multiplication");
 
-    // TODO I think it is better do do stripes (columns) than blocks, better memory alignment when computing the counts
     int relToMatrixBlock = 1024;
     int blockCountRelToMatrix = (dimA*dimC + relToMatrixBlock - 1) / relToMatrixBlock;
 

@@ -17,6 +17,8 @@ public:
     void finish();
 };
 
+void print_vec(int* vec, int len);
+
 const char* cublasGetErrorString(cublasStatus_t status);
 
 #define CUDA_CHECK(err) \

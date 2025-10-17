@@ -1,4 +1,5 @@
 #include "util.h"
+#include <cstdio>
 
 Timer::Timer(const char* timer_name) {
     name = std::string(timer_name);
@@ -25,6 +26,13 @@ void Timer::finish() {
         }
         std::cout << "  (Total): " << total.count() << " s" << std::endl;
     }
+}
+
+void print_vec(int* vec, int len) {
+    printf("[ ");
+    for(int i = 0; i < len; i++)
+        printf("%d ", vec[i]);
+    printf("]\n");
 }
 
 const char* cublasGetErrorString(cublasStatus_t status) {
