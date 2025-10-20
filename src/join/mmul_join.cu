@@ -44,7 +44,7 @@ Relation MMUL_Join::join(Relation rel1, Relation rel2) {
     CUDA_CHECK(cudaMalloc(&outMatrix, outSize));
 
     IN_MAT* M1 = rel1.toDenseMatrix(dimA, dimB);
-    IN_MAT* M2 = rel1.toDenseMatrix(dimB, dimC);
+    IN_MAT* M2 = rel2.toDenseMatrix(dimB, dimC);
     CUDA_CHECK(cudaDeviceSynchronize());
     CUDA_CHECK(cudaGetLastError());
 

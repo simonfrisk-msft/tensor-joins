@@ -28,7 +28,14 @@ void Timer::finish() {
     }
 }
 
-void print_vec(int* vec, int len) {
+void print_vec_gpu(int* vec, int len) {
+    int* buffer = (int*) malloc(len * sizeof(int));
+    cudaMemcpy(buffer, vec, len * sizeof(int), cudaMemcpyDeviceToHost);
+    print_vec_cpu(buffer, len);
+    free(buffer);
+}
+
+void print_vec_cpu(int* vec, int len) {
     printf("[ ");
     for(int i = 0; i < len; i++)
         printf("%d ", vec[i]);

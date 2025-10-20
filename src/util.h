@@ -17,7 +17,8 @@ public:
     void finish();
 };
 
-void print_vec(int* vec, int len);
+void print_vec_cpu(int* vec, int len);
+void print_vec_gpu(int* vec, int len);
 
 const char* cublasGetErrorString(cublasStatus_t status);
 

@@ -2,7 +2,6 @@
 #include "../util.h"
 #include <cstdio>
 #include <sstream>
-#include "deduplicate.h"
 
 __global__ void cuda_naive_join(Relation out, Relation rel1, Relation rel2, int n1, int n2, int* counter) {
     int xR1 = blockIdx.x * blockDim.x + threadIdx.x;
@@ -35,7 +34,7 @@ Relation Naive_Join::join(Relation rel1, Relation rel2) {
 
     t.lap("Join w. Projection");
 
-    deduplicate(output);
+    output.deduplicate();
 
     t.lap("Deduplicate");
 

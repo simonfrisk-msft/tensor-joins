@@ -8,18 +8,6 @@ struct Tuple {
     int y;
 };
 
-__host__ __device__ inline
-bool operator==(const Tuple& a, const Tuple& b) {
-    return a.x == b.x && a.y == b.y;
-}
-
-__host__ __device__ inline
-bool operator<(const Tuple& a, const Tuple& b) {
-    if (a.x < b.x) return true;
-    if (a.x > b.x) return false;
-    return a.y < b.y;
-}
-
 class Relation {
 public:
     int count;
@@ -31,6 +19,19 @@ public:
     void print_gpu();
     void print_stats();
     void sort();
+    void deduplicate();
     IN_MAT* toDenseMatrix(int domX, int domY); // Convert from relation to dense matrix
     Relation transferToDevice();
+};
+
+class CSRMatrix {
+public:
+    int* values;
+    int* columnIndexes;
+    int* rowOffsets;
+    int numRows;
+    int numNonZeros;
+    CSRMatrix(Relation relation, int domX, int domY);
+    Relation toRelation();
+    void print();
 };
