@@ -26,5 +26,6 @@ public:
     void free();
     void print_gpu();
     void print_stats();
+    void sort();
     Relation transferToDevice();
 };

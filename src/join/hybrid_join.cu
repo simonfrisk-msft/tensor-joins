@@ -9,6 +9,7 @@
 // Take a relation R, and an attribute a with domain d
 // Return the vector of length d, with degrees of values in a
 // TODO for now hard code finding degrees in X/Y
+// TODO this is really slow
 __global__ void findDegreesX(Relation relation, int domain, int* degreeVector) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if(idx < relation.count) {
@@ -64,6 +65,8 @@ Relation Hybrid_Join::join(Relation relationR, Relation relationS) {
     int *degXInR;
     CUDA_CHECK(cudaMallocManaged(&degXInR, domX * sizeof(int)));
     // Compute degrees ---
+    relationR.sort();
+    t.lap("Sorting");
     findDegreesX<<<(relationR.count + 1024 - 1) / 1024, 1024>>>(relationR, domX, degXInR);
     CUDA_CHECK(cudaDeviceSynchronize());
     t.lap("Compute degrees");
@@ -95,10 +98,10 @@ Relation Hybrid_Join::join(Relation relationR, Relation relationS) {
     MMUL_Join mmul_join(domX, domY, domZ); // TODO DOING THIS BREAKS POINT; USE SMALLER DOM
     Relation light;
     Relation heavy;
-    if(partitionBuffers[1].count > 0)
+    /*if(partitionBuffers[1].count > 0)
         light = naive_join.join(partitionBuffers[1], relationS);
     if(partitionBuffers[0].count > 1)
-        heavy = mmul_join.join(partitionBuffers[0], relationS);
+        heavy = mmul_join.join(partitionBuffers[0], relationS);*/
     CUDA_CHECK(cudaDeviceSynchronize());
     t.lap("Join w. Projection");
 

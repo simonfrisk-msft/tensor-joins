@@ -1,6 +1,8 @@
 #include "relation.h"
-#include <cstdio>
 #include "util.h"
+#include <cstdio>
+#include <thrust/device_ptr.h>
+#include <thrust/sort.h>
 
 __global__ void print_gpu_kernel(Tuple* data, int count) {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
@@ -8,6 +10,12 @@ __global__ void print_gpu_kernel(Tuple* data, int count) {
         Tuple tuple = data[idx];
         printf("(%d, %d)\n", tuple.x, tuple.y);
     }
+}
+
+void Relation::sort() {
+    thrust::device_ptr<Tuple> begin(data);
+    thrust::device_ptr<Tuple> end(data + count);
+    thrust::sort(begin, end);
 }
 
 Relation::Relation(Tuple* tuples, int numberTuples) {

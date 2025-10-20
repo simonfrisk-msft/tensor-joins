@@ -84,6 +84,8 @@ Relation MMUL_Join::join(Relation rel1, Relation rel2) {
     CUDA_CHECK(cudaMalloc(&M2, M2Size));
     CUDA_CHECK(cudaMalloc(&outMatrix, outSize));
 
+    t.lap("Allocate matrices");
+
     int blockSizeRelToMat = 1024;
     int numBlocksM1 = (rel1.count + blockSizeRelToMat - 1) / blockSizeRelToMat;
     int numBlocksM2 = (rel2.count + blockSizeRelToMat - 1) / blockSizeRelToMat;
@@ -134,9 +136,11 @@ Relation MMUL_Join::join(Relation rel1, Relation rel2) {
     thrust::device_ptr<int> thrust_ptr(outputSizePerBlock);
     thrust::device_ptr<int> thrust_prefix_ptr(prefixOutputSizePerBlock);
     thrust::inclusive_scan(thrust_ptr, thrust_ptr + blockCountRelToMatrix, thrust_prefix_ptr+1);
+    t.lap("Prefix sum");
+
     CUDA_CHECK(cudaMemcpy(&outRel.count, prefixOutputSizePerBlock + blockCountRelToMatrix, sizeof(int), cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaMalloc(&outRel.data, outRel.count * sizeof(Tuple)));
-    t.lap("Prefix sum");
+    t.lap("Allocate buffers");
 
     MatrixToRelation<<<blockCountRelToMatrix, relToMatrixBlock>>>(outRel, outMatrix, dimA, dimC, prefixOutputSizePerBlock);
     cudaDeviceSynchronize();
