@@ -60,7 +60,7 @@ void run_txt(const char* file1) {
     rel1.print_stats();
     tt.finish();
 
-    MMUL_Join joinObj(hd1.getX(), (hd1.getY() > hd1.getX() ? hd1.getY() : hd1.getX()), hd1.getY());
+    Naive_Join joinObj;//(hd1.getX(), (hd1.getY() > hd1.getX() ? hd1.getY() : hd1.getX()), hd1.getY());
     Relation out = joinObj.join(rel1, rel2);
     out.print_stats();
     out.free();
@@ -73,7 +73,6 @@ void run_txt(const char* file1) {
 
 void dense_experiment() {
     run_txt("./data/gplus_combined.txt");
-
 
     // TODO make into a test
     /*Tuple t1[4] = {Tuple{x:0,y:0},Tuple{x:0,y:1},Tuple{x:0,y:2},Tuple{x:2,y:2}};

@@ -2,11 +2,11 @@ import cudf
 import cupy as cp
 import time
 
-for p in [0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001]:
+for p in [0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001, 0.00003, 0.00001]:
     print("-------------------- Probability ", p)
-    N1 = 1000
-    N2 = 1000
-    N3 = 1000
+    N1 = 20000
+    N2 = 20000
+    N3 = 20000
     domain_A = cp.arange(N1)
     domain_B = cp.arange(N2)
     domain_C = cp.arange(N3)
