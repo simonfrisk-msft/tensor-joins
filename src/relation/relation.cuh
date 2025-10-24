@@ -38,29 +38,43 @@ public:
     void free_gpu();
     void print_gpu();
     void print_stats();
-    void sort();
     void deduplicate();
     Relation transferToDevice();
 
+    // Sort on all attributes
+    void sort();
+    // Sort on one attribute
+    template <int attribute>
+    void sort_on_attribute();
+
     // Find the min, max, and count of distinct values for some attribute
     // count, min, max should be pointers to device/managed memory
-    void countDomain(int* count, int* min, int* max); // TODO add attribute index
+    template <int attribute>
+    void countDomain(int* count);
     void consecutifyRelation();
 };
 
 template <int n>
 void Relation<n>::sort() {
-    thrust::device_ptr<Tuple<2>> begin(data);
-    thrust::device_ptr<Tuple<2>> end(data + count);
+    thrust::device_ptr<Tuple<n>> begin(data);
+    thrust::device_ptr<Tuple<n>> end(data + count);
     thrust::sort(begin, end);
 }
 
 template <int n>
+template <int attribute>
+void Relation<n>::sort_on_attribute() {
+    thrust::device_ptr<Tuple<n>> begin(data);
+    thrust::device_ptr<Tuple<n>> end(data + count);
+    thrust::sort(begin, end, CompareTuple<attribute, n>());
+}
+
+template <int n>
 void Relation<n>::deduplicate() {
-    thrust::device_ptr<Tuple<2>> begin(data);
-    thrust::device_ptr<Tuple<2>> end(data + count);
+    thrust::device_ptr<Tuple<n>> begin(data);
+    thrust::device_ptr<Tuple<n>> end(data + count);
     thrust::sort(begin, end);
-    thrust::device_ptr<Tuple<2>> new_end = thrust::unique(begin, end);
+    thrust::device_ptr<Tuple<n>> new_end = thrust::unique(begin, end);
     count = new_end - begin;
 }
 
@@ -103,26 +117,22 @@ Relation<n> Relation<n>::transferToDevice() {
     return deviceRelation;
 }
 
-template <int n> // TODO also take in which attribute as another template parameter
-__global__ void domainProperties(Tuple<n>* data, int size, int* count, int* max, int* min) {
+template <int n, int attribute>
+__global__ void domainProperties(Tuple<n>* data, int size, int* count) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < size && (idx == 0 || data[idx - 1].values[0] != data[idx].values[0])) {
+    if (idx < size && (idx == 0 || data[idx - 1].values[attribute] != data[idx].values[attribute])) {
         atomicAdd(count, 1);
-        atomicMax(max, data[idx].values[0]);
-        atomicMin(min, data[idx].values[0]);
     }
 }
 
 template <int n>
-void Relation<n>::countDomain(int* domSize, int* min, int* max) {
-    sort();
-    CUDA_CHECK(cudaMemset(max, INT_MIN, sizeof(int)));
-    CUDA_CHECK(cudaMemset(min, INT_MAX, sizeof(int)));
+template <int attribute>
+void Relation<n>::countDomain(int* domSize) {
+    sort_on_attribute<attribute>();
     CUDA_CHECK(cudaMemset(domSize, 0, sizeof(int)));
     int blockSize = 1024;
-    int blocks = (count + blockSize - 1) / blockSize;
-    domainProperties<n><<<blocks, blockSize>>>(data, count, domSize, max, min);
-    CUDA_CHECK(cudaDeviceSynchronize());
+    int blocks = (count + blockSize - 1) / blockSize; 
+    domainProperties<n, attribute><<<blocks, blockSize>>>(data, count, domSize);
 }
 
 template <int n>

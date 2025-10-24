@@ -114,7 +114,7 @@ Relation<2> Hybrid_Join::join(Relation<2> relationR, Relation<2> relationS) {
     t.lap("Partition");
     // Compute the joins ---
     Naive_Join naive_join;
-    MMUL_Join mmul_join(domX, domY, domZ); // TODO DOING THIS BREAKS POINT; USE SMALLER DOM
+    MMUL_Join mmul_join; // TODO DOING THIS BREAKS POINT; USE SMALLER DOM
     Relation<2> light;
     Relation<2> heavy;
     if(partitionBuffers[1].count > 0)

@@ -30,5 +30,13 @@ bool operator<(const Tuple<n>& a, const Tuple<n>& b) {
             return false;
         }
     }
-    return false; // they are equal
+    return false;
 }
+
+template <int attribute, int n>
+struct CompareTuple {
+    __host__ __device__
+    bool operator()(const Tuple<n>& a, const Tuple<n>& b) const {
+        return a.values[attribute] < b.values[attribute];
+    }
+};

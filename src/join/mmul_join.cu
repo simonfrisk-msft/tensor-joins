@@ -13,34 +13,7 @@ int roundUpToBlock(int num) {
     return ((num + MM_BLOCK - 1) / MM_BLOCK) * MM_BLOCK;
 }
 
-MMUL_Join::MMUL_Join(int a, int b, int c) {
-    dimA = roundUpToBlock(a);
-    dimB = roundUpToBlock(b);
-    dimC = roundUpToBlock(c);
-}
-
 Relation<2> MMUL_Join::join(Relation<2> rel1, Relation<2> rel2) {
-    cublasHandle_t handle;
-    CUBLAS_CHECK(cublasCreate(&handle));
-    cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH);
-
-    int *min, *max, *count;
-    CUDA_CHECK(cudaMallocManaged(&min, sizeof(int)));
-    CUDA_CHECK(cudaMallocManaged(&max, sizeof(int)));
-    CUDA_CHECK(cudaMallocManaged(&count, sizeof(int)));
-    CUDA_CHECK(cudaMemset(min, INT_MAX, sizeof(int)));
-    CUDA_CHECK(cudaMemset(max, INT_MIN, sizeof(int)));
-    CUDA_CHECK(cudaMemset(count, 0, sizeof(int)));
-    rel1.countDomain(count, min, max);
-    printf("Rel1 Domain X: count=%d min=%d max=%d\n", *count, *min, *max);
-
-    std::stringstream name;
-    name << "MMUL Join (" << rel1.count << ", " << rel2.count << ")";
-    Timer t(name.str().c_str());
-
-    int alpha = 1;
-    int beta = 0;
-
     if (rel1.count <= 0 || rel2.count <= 0) {
         Relation<2> outRel;
         outRel.count = 0;
@@ -48,9 +21,45 @@ Relation<2> MMUL_Join::join(Relation<2> rel1, Relation<2> rel2) {
         return outRel;
     }
 
-    DenseMatrix<OUT_MAT> outMatrix(dimA, dimC);
-    DenseMatrix<IN_MAT> M1(rel1, dimA, dimB);
-    DenseMatrix<IN_MAT> M2(rel2, dimB, dimC);
+    cublasHandle_t handle;
+    CUBLAS_CHECK(cublasCreate(&handle));
+    cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH);
+
+    std::stringstream name;
+    name << "MMUL Join (" << rel1.count << ", " << rel2.count << ")";
+    Timer t(name.str().c_str());
+
+    int *domX, *domY, *domY1, *domY2, *domZ;
+    CUDA_CHECK(cudaMallocManaged(&domX, sizeof(int)));
+    CUDA_CHECK(cudaMallocManaged(&domY, sizeof(int)));
+    CUDA_CHECK(cudaMallocManaged(&domY1, sizeof(int)));
+    CUDA_CHECK(cudaMallocManaged(&domY2, sizeof(int)));
+    CUDA_CHECK(cudaMallocManaged(&domZ, sizeof(int)));
+    CUDA_CHECK(cudaMemset(domX, 0, sizeof(int)));
+    CUDA_CHECK(cudaMemset(domY, 0, sizeof(int)));
+    CUDA_CHECK(cudaMemset(domY1, 0, sizeof(int)));
+    CUDA_CHECK(cudaMemset(domY2, 0, sizeof(int)));
+    CUDA_CHECK(cudaMemset(domZ, 0, sizeof(int)));
+    rel1.countDomain<0>(domX);
+    rel1.countDomain<1>(domY1);
+    rel2.countDomain<1>(domY2);
+    rel2.countDomain<1>(domZ);
+    CUDA_CHECK(cudaDeviceSynchronize());
+    *domY = roundUpToBlock(12912); // TODO this is not just max, since things may be missing on one side.
+    *domX = roundUpToBlock(12912);
+    *domZ = roundUpToBlock(12912);
+    printf("Domains %d %d %d\n", *domX, *domY, *domZ);
+
+    // TODO consecutize domains
+
+    t.lap("Consecutizing Domain");
+
+    int alpha = 1;
+    int beta = 0;
+
+    DenseMatrix<OUT_MAT> outMatrix(*domX, *domZ);
+    DenseMatrix<IN_MAT> M1(rel1, *domX, *domY);
+    DenseMatrix<IN_MAT> M2(rel2, *domY, *domZ);
 
     CUDA_CHECK(cudaDeviceSynchronize());
     CUDA_CHECK(cudaGetLastError());
@@ -59,11 +68,11 @@ Relation<2> MMUL_Join::join(Relation<2> rel1, Relation<2> rel2) {
 
     CUBLAS_CHECK(cublasGemmEx(handle, 
         CUBLAS_OP_N, CUBLAS_OP_N,
-        dimA, dimC, dimB, &alpha,
-        M1.matrix, CUDA_R_8I, dimA,
-        M2.matrix, CUDA_R_8I, dimB,
+        *domX, *domZ, *domY, &alpha,
+        M1.matrix, CUDA_R_8I, *domX,
+        M2.matrix, CUDA_R_8I, *domY,
         &beta,
-        outMatrix.matrix, CUDA_R_32I, dimA,
+        outMatrix.matrix, CUDA_R_32I, *domX,
         CUDA_R_32I,
         CUBLAS_GEMM_DEFAULT_TENSOR_OP));
 

@@ -20,7 +20,7 @@ void tests() {
     Relation<2> dr2 = rel2.transferToDevice();
 
     // MMUL Join
-    MMUL_Join joinObj1(3, 3, 3);
+    MMUL_Join joinObj1;
     Relation<2> output = joinObj1.join(dr1, dr2);
     if(output.count != 3)
         std::cout << "[Test1 MMUL] Wrong output count: expected 3, receieved " << output.count << std::endl;

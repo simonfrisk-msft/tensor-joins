@@ -13,9 +13,8 @@ template <typename T>
 __global__ void RelationToMatrix(Tuple<2>* data, int relationSize, T* matrix, int stride) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if(idx < relationSize) {
-        __syncthreads();
         Tuple tuple = data[idx];
-        __syncthreads();
+        // Column major
         matrix[tuple.values[0] + tuple.values[1] * stride] = 1;
     }
 }

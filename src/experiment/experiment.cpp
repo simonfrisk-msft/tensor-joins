@@ -35,7 +35,7 @@ void run_dense(int dom1, int dom2, int dom3) {
         Relation<2> dd2 = hd2.relation().transferToDevice();
         tt.finish();
 
-        MMUL_Join joinObj(dom1, dom2, dom3);
+        MMUL_Join joinObj;
         Relation<2> out = joinObj.join(dd1, dd2);
         out.print_stats();
         out.free_gpu();
@@ -60,7 +60,7 @@ void run_txt(const char* file1) {
     rel1.print_stats();
     tt.finish();
 
-    MMUL_Join joinObj(hd1.getX(), (hd1.getY() > hd1.getX() ? hd1.getY() : hd1.getX()), hd1.getY());
+    MMUL_Join joinObj;
     Relation<2> out = joinObj.join(rel1, rel2);
     out.print_stats();
     out.free_gpu();
