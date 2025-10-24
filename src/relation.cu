@@ -57,7 +57,7 @@ __device__ int binary_search_round_down(int search, int* array, int length) {
     return low;
 }
 
-__global__ void CSRMatrixToRelation(int numRows, int relationSize, int* rowOffsets, int* columnIndexes, int* values, Relation relation) { 
+__global__ void CSRMatrixToRelation(int numRows, int relationSize, int* rowOffsets, int* columnIndexes, float* values, Relation relation) { 
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if(idx < relationSize) {
         relation.data[idx].y = columnIndexes[idx];
@@ -68,7 +68,9 @@ __global__ void CSRMatrixToRelation(int numRows, int relationSize, int* rowOffse
 __global__ void RelationToDenseMatrix(Tuple* data, int relationSize, IN_MAT* matrix, int stride) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if(idx < relationSize) {
+        __syncthreads();
         Tuple tuple = data[idx];
+        __syncthreads();
         matrix[tuple.x + tuple.y * stride] = 1;
     }
 }
@@ -189,7 +191,9 @@ Relation Relation::transferToDevice() {
     return deviceRelation;
 }
 
-CSRMatrix::CSRMatrix(Relation relation, int domX, int domY) {
+CSRMatrix::CSRMatrix() {}
+
+CSRMatrix::CSRMatrix(Relation relation, int domX, int domY): domX(domX), domY(domY) {
     relation.sort();
     thrust::device_ptr<Tuple> thrustData(relation.data);
     auto rowIterator = thrust::make_transform_iterator(thrustData, TupleX());
@@ -208,8 +212,8 @@ CSRMatrix::CSRMatrix(Relation relation, int domX, int domY) {
     auto columnIterator = thrust::make_transform_iterator(thrustData, TupleY());
     thrust::copy(columnIterator, columnIterator + relation.count, thrust::device_pointer_cast(columnIndexes));
     // Values are all ones
-    CUDA_CHECK(cudaMalloc(&values, relation.count * sizeof(int)));
-    CUDA_CHECK(cudaMemset(values, 1, relation.count * sizeof(int)));
+    CUDA_CHECK(cudaMalloc(&values, relation.count * sizeof(float)));
+    CUDA_CHECK(cudaMemset(values, 1, relation.count * sizeof(float)));
     // Metadata
     numNonZeros = relation.count;
     numRows = domX;

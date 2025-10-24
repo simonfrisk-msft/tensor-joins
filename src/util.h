@@ -3,6 +3,7 @@
 #include <vector>
 #include <iostream>
 #include <cublas_v2.h>
+#include <cusparse.h>
 #include <cuda_runtime.h>
 
 class Timer {
@@ -42,3 +43,12 @@ const char* cublasGetErrorString(cublasStatus_t status);
         } \
     } while (0)
 
+#define CUSPARSE_CHECK(func) \
+    do { \
+        cusparseStatus_t status = (func); \
+        if (status != CUSPARSE_STATUS_SUCCESS) { \
+            std::cerr << "cuSparse Error: " << cusparseGetErrorString(status) \
+                        << " at " << __FILE__ << ":" << __LINE__ << std::endl; \
+            exit(EXIT_FAILURE); \
+        } \
+    } while (0)

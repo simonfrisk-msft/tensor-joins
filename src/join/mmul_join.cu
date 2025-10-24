@@ -24,8 +24,6 @@ Relation MMUL_Join::join(Relation rel1, Relation rel2) {
     CUBLAS_CHECK(cublasCreate(&handle));
     cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH);
 
-    cusparseSpMatDescr_t mat1, mat2, matOut;
-
     std::stringstream name;
     name << "MMUL Join (" << rel1.count << ", " << rel2.count << ")";
     Timer t(name.str().c_str());
@@ -50,18 +48,17 @@ Relation MMUL_Join::join(Relation rel1, Relation rel2) {
 
     t.lap("Relation to Matrix");
 
-    cublasStatus_t mmul_status = cublasGemmEx(handle, 
+    CUBLAS_CHECK(cublasGemmEx(handle, 
         CUBLAS_OP_N, CUBLAS_OP_N,
         dimA, dimC, dimB, &alpha,
         M1, CUDA_R_8I, dimA,
         M2, CUDA_R_8I, dimB,
         &beta,
-        outMatrix, CUDA_R_32I, dimC,
+        outMatrix, CUDA_R_32I, dimA,
         CUDA_R_32I,
-        CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+        CUBLAS_GEMM_DEFAULT_TENSOR_OP));
 
-    cudaDeviceSynchronize();
-    CUBLAS_CHECK(mmul_status);
+    CUDA_CHECK(cudaDeviceSynchronize());
     CUDA_CHECK(cudaGetLastError());
 
     t.lap("Matrix Multiplication");

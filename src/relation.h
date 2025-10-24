@@ -26,12 +26,14 @@ public:
 
 class CSRMatrix {
 public:
-    int* values;
+    int domX, domY;
+    float* values;
     int* columnIndexes;
     int* rowOffsets;
     int numRows;
     int numNonZeros;
     CSRMatrix(Relation relation, int domX, int domY);
+    CSRMatrix();
     Relation toRelation();
     void print();
 };

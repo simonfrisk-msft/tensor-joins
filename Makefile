@@ -1,8 +1,8 @@
-CUDA_DIR := /usr/local/cuda-13
+CUDA_DIR := /usr/local/cuda-12
 
 NVCC := $(CUDA_DIR)/bin/nvcc
 CUDA_LIBS = -L$(CUDA_DIR)/lib64
-CFLAGS := -lcublas
+CFLAGS := -lcublas -lcusparse
 
 SRC_DIR := src
 BUILD_DIR := build
@@ -13,7 +13,7 @@ OBJ_FILES := $(patsubst $(SRC_DIR)/%, $(BUILD_DIR)/%, $(SRC_FILES))
 OBJ_FILES := $(OBJ_FILES:.cu=.o)
 OBJ_FILES := $(OBJ_FILES:.cpp=.o)
 
-all: build run clean
+all: build run
 
 build: $(BIN)
 
