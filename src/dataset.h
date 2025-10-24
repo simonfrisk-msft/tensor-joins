@@ -1,14 +1,15 @@
 #pragma once
 
-#include "relation.h"
+#include "./relation/tuple.cuh"
+#include "./relation/relation.cuh"
 #include <vector>
 
 class Dataset {
 protected:
-    std::vector<Tuple> data;
+    std::vector<Tuple<2>> data;
     int domX, domY;
 public:
-    Relation relation();
+    Relation<2> relation();
     int getX();
     int getY();
 };
@@ -20,5 +21,5 @@ public:
 
 class TxtFileDataset: public Dataset {
 public:
-    TxtFileDataset(const char* filename);
+    TxtFileDataset(const char* filename, int max_rows);
 };

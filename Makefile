@@ -2,7 +2,7 @@ CUDA_DIR := /usr/local/cuda-12
 
 NVCC := $(CUDA_DIR)/bin/nvcc
 CUDA_LIBS = -L$(CUDA_DIR)/lib64
-CFLAGS := -lcublas -lcusparse
+CFLAGS := -lcublas -lcusparse -std=c++20
 
 SRC_DIR := src
 BUILD_DIR := build

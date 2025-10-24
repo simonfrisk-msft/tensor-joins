@@ -16,9 +16,9 @@ int Dataset::getY() {
     return domY;
 }
 
-Relation Dataset::relation() {
+Relation<2> Dataset::relation() {
     std::cout << "[Dataset Relation] " << data.size() << " tuples" << std::endl;
-    return Relation(data.data(), data.size());
+    return Relation<2>(data.data(), data.size());
 }
 
 RandomDataset::RandomDataset(int domX, int domY, float probability) {
@@ -33,13 +33,13 @@ RandomDataset::RandomDataset(int domX, int domY, float probability) {
         for (int j = 0; j < domY; j++) {
             float r = distribution(generator);
             if(r <= probability) {
-                data.push_back(Tuple { x: i, y: j });
+                data.push_back(Tuple<2> {{i, j}});
             }
         }
     }
 }
 
-TxtFileDataset::TxtFileDataset(const char* filename) {
+TxtFileDataset::TxtFileDataset(const char* filename, int max_rows) {
     std::ifstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Failed to open file\n";
@@ -47,11 +47,10 @@ TxtFileDataset::TxtFileDataset(const char* filename) {
     std::unordered_map<std::string, int> id_map;
     std::string line;
     int next_id = 0;
-    int max_tuples = 1000000; // Temporary limit
     int tuple_count = 0;
 
     while (std::getline(file, line)) {
-        if (tuple_count++ >= max_tuples) break;
+        if (tuple_count++ >= max_rows) break;
         std::istringstream iss(line);
         std::string sa, sb;
         if (!(iss >> sa >> sb)) continue; // Skip invalid lines

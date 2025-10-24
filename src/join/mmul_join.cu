@@ -1,10 +1,10 @@
 #include "mmul_join.h"
 #include <cublas_v2.h>
-#include <cusparse.h>
 #include <cuda_runtime.h>
 #include <sstream>
 #include <cstdio>
-#include "../relation.h"
+#include "../relation/relation.cuh"
+#include "../relation/dense_matrix.cuh"
 #include "../util.h"
 
 #define MM_BLOCK 32
@@ -19,10 +19,20 @@ MMUL_Join::MMUL_Join(int a, int b, int c) {
     dimC = roundUpToBlock(c);
 }
 
-Relation MMUL_Join::join(Relation rel1, Relation rel2) {
+Relation<2> MMUL_Join::join(Relation<2> rel1, Relation<2> rel2) {
     cublasHandle_t handle;
     CUBLAS_CHECK(cublasCreate(&handle));
     cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH);
+
+    int *min, *max, *count;
+    CUDA_CHECK(cudaMallocManaged(&min, sizeof(int)));
+    CUDA_CHECK(cudaMallocManaged(&max, sizeof(int)));
+    CUDA_CHECK(cudaMallocManaged(&count, sizeof(int)));
+    CUDA_CHECK(cudaMemset(min, INT_MAX, sizeof(int)));
+    CUDA_CHECK(cudaMemset(max, INT_MIN, sizeof(int)));
+    CUDA_CHECK(cudaMemset(count, 0, sizeof(int)));
+    rel1.countDomain(count, min, max);
+    printf("Rel1 Domain X: count=%d min=%d max=%d\n", *count, *min, *max);
 
     std::stringstream name;
     name << "MMUL Join (" << rel1.count << ", " << rel2.count << ")";
@@ -31,18 +41,17 @@ Relation MMUL_Join::join(Relation rel1, Relation rel2) {
     int alpha = 1;
     int beta = 0;
 
-    OUT_MAT *outMatrix;
     if (rel1.count <= 0 || rel2.count <= 0) {
-        Relation outRel;
+        Relation<2> outRel;
         outRel.count = 0;
         cudaMalloc(&outRel.data, 0);
         return outRel;
     }
-    int outSize = dimA * dimC * sizeof(OUT_MAT);
-    CUDA_CHECK(cudaMalloc(&outMatrix, outSize));
 
-    IN_MAT* M1 = rel1.toDenseMatrix(dimA, dimB);
-    IN_MAT* M2 = rel2.toDenseMatrix(dimB, dimC);
+    DenseMatrix<OUT_MAT> outMatrix(dimA, dimC);
+    DenseMatrix<IN_MAT> M1(rel1, dimA, dimB);
+    DenseMatrix<IN_MAT> M2(rel2, dimB, dimC);
+
     CUDA_CHECK(cudaDeviceSynchronize());
     CUDA_CHECK(cudaGetLastError());
 
@@ -51,10 +60,10 @@ Relation MMUL_Join::join(Relation rel1, Relation rel2) {
     CUBLAS_CHECK(cublasGemmEx(handle, 
         CUBLAS_OP_N, CUBLAS_OP_N,
         dimA, dimC, dimB, &alpha,
-        M1, CUDA_R_8I, dimA,
-        M2, CUDA_R_8I, dimB,
+        M1.matrix, CUDA_R_8I, dimA,
+        M2.matrix, CUDA_R_8I, dimB,
         &beta,
-        outMatrix, CUDA_R_32I, dimA,
+        outMatrix.matrix, CUDA_R_32I, dimA,
         CUDA_R_32I,
         CUBLAS_GEMM_DEFAULT_TENSOR_OP));
 
@@ -63,15 +72,13 @@ Relation MMUL_Join::join(Relation rel1, Relation rel2) {
 
     t.lap("Matrix Multiplication");
     
-    Relation outRel(outMatrix, dimA, dimC);
-    cudaDeviceSynchronize();
-    CUDA_CHECK(cudaGetLastError());
+    Relation<2> outRel = outMatrix.toRelation();
     
     t.lap("Matrix to Relation");
 
-    CUDA_CHECK(cudaFree(outMatrix));
-    CUDA_CHECK(cudaFree(M1));
-    CUDA_CHECK(cudaFree(M2));
+    outMatrix.free();
+    M1.free();
+    M2.free();
     
     t.finish();
     cublasDestroy(handle);

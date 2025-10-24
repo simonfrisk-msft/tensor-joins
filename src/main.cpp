@@ -1,7 +1,7 @@
 #include "experiment/experiment.h"
 
 int main() {
-    tests();
+    //tests();
     dense_experiment();
 }
 

@@ -3,5 +3,5 @@
 
 class Naive_Join : public BaseJoin {
 public:
-    Relation join(Relation rel1, Relation rel2);
+    Relation<2> join(Relation<2> rel1, Relation<2> rel2);
 };

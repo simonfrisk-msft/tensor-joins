@@ -9,21 +9,21 @@
 // Return the vector of length d, with degrees of values in a
 // TODO for now hard code finding degrees in X/Y
 // TODO this is really slow
-__global__ void findDegreesX(Relation relation, int domain, int* degreeVector) {
+__global__ void findDegreesX(Relation<2> relation, int domain, int* degreeVector) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if(idx < relation.count) {
         Tuple t = relation.data[idx];
-        atomicAdd(&degreeVector[t.x], 1);
+        atomicAdd(&degreeVector[t.values[0]], 1);
     }
 }
 
 // Find which tuple to put in what partition
-__global__ void multiplyPartitionHLX(Relation relation, int* degreeVector, int* partition, int length, int threshold) {
+__global__ void multiplyPartitionHLX(Relation<2> relation, int* degreeVector, int* partition, int length, int threshold) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if(idx < relation.count) {
         Tuple t = relation.data[idx];
         int isLight = 1;
-        if(degreeVector[t.x] > threshold)
+        if(degreeVector[t.values[0]] > threshold)
             isLight = 0;
         partition[idx] = isLight;
     }
@@ -38,7 +38,7 @@ __global__ void calculatePartitionSizes(int relationSize, int* partition, int* p
 }
 
 // Take a relation, put tuples into different partitions
-__global__ void partition(Relation relation, Relation* partitionBuffers, int* partition) {
+__global__ void partition(Relation<2> relation, Relation<2>* partitionBuffers, int* partition) {
     int tupleIdx = blockIdx.x * blockDim.x + threadIdx.x;
     if(tupleIdx == 0)
         printf("counts %d %d\n", partitionBuffers[0].count, partitionBuffers[1].count);
@@ -70,7 +70,7 @@ Hybrid_Join::Hybrid_Join(int a, int b, int c) {
     domZ = c;
 }
 
-Relation Hybrid_Join::join(Relation relationR, Relation relationS) {
+Relation<2> Hybrid_Join::join(Relation<2> relationR, Relation<2> relationS) {
     std::stringstream name;
     name << "Hybrid Join (" << relationR.count << ", " << relationS.count << ")";
     Timer t(name.str().c_str());
@@ -100,8 +100,8 @@ Relation Hybrid_Join::join(Relation relationR, Relation relationS) {
     calculatePartitionSizes<<<(relationR.count + 1024 - 1) / 1024, 1024>>>(relationR.count, partitionR, partitionLengths);
     CUDA_CHECK(cudaDeviceSynchronize());
     // Allocate partition buffers
-    Relation* partitionBuffers;
-    CUDA_CHECK(cudaMallocManaged(&partitionBuffers, 2 * sizeof(Relation)));
+    Relation<2>* partitionBuffers;
+    CUDA_CHECK(cudaMallocManaged(&partitionBuffers, 2 * sizeof(Relation<2>)));
     CUDA_CHECK(cudaMemset(&partitionBuffers[0].count, 0, sizeof(int)));
     CUDA_CHECK(cudaMemset(&partitionBuffers[1].count, 0, sizeof(int)));
     CUDA_CHECK(cudaMalloc(&partitionBuffers[0].data, partitionLengths[0] * sizeof(int)));
@@ -115,8 +115,8 @@ Relation Hybrid_Join::join(Relation relationR, Relation relationS) {
     // Compute the joins ---
     Naive_Join naive_join;
     MMUL_Join mmul_join(domX, domY, domZ); // TODO DOING THIS BREAKS POINT; USE SMALLER DOM
-    Relation light;
-    Relation heavy;
+    Relation<2> light;
+    Relation<2> heavy;
     if(partitionBuffers[1].count > 0)
         light = naive_join.join(partitionBuffers[1], relationS);
     if(partitionBuffers[0].count > 1)

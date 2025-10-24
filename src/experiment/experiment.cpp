@@ -12,11 +12,11 @@ void run_dense(int dom1, int dom2, int dom3) {
 
     std::vector<float> probs;
     probs.push_back(1.0);
-    /*probs.push_back(0.3);
+    probs.push_back(0.3);
     probs.push_back(0.1);
     probs.push_back(0.03);
     probs.push_back(0.01);
-    probs.push_back(0.003);
+    /*probs.push_back(0.003);
     probs.push_back(0.001);
     probs.push_back(0.0003);
     probs.push_back(0.0001);
@@ -31,17 +31,17 @@ void run_dense(int dom1, int dom2, int dom3) {
         RandomDataset hd2(dom2, dom3, p);
         td.finish();
         Timer tt("Transfer to device");
-        Relation dd1 = hd1.relation().transferToDevice();
-        Relation dd2 = hd2.relation().transferToDevice();
+        Relation<2> dd1 = hd1.relation().transferToDevice();
+        Relation<2> dd2 = hd2.relation().transferToDevice();
         tt.finish();
 
-        CSR_Join joinObj(dom1, dom2, dom3);
-        Relation out = joinObj.join(dd1, dd2);
+        MMUL_Join joinObj(dom1, dom2, dom3);
+        Relation<2> out = joinObj.join(dd1, dd2);
         out.print_stats();
-        out.free();
+        out.free_gpu();
 
-        dd1.free();
-        dd2.free();
+        dd1.free_gpu();
+        dd2.free_gpu();
 
         cudaDeviceReset();
     }
@@ -51,27 +51,28 @@ void run_txt(const char* file1) {
     std::cout << "--- File: " << file1 << std::endl;
 
     Timer td("Creating dataset from txt file");
-    TxtFileDataset hd1(file1);
-    TxtFileDataset hd2(file1);
+    TxtFileDataset hd1(file1, 1000000);
+    TxtFileDataset hd2(file1, 1000000);
     td.finish();
     Timer tt("Transfer to device");
-    Relation rel1 = hd1.relation().transferToDevice();
-    Relation rel2 = hd2.relation().transferToDevice();
+    Relation<2> rel1 = hd1.relation().transferToDevice();
+    Relation<2> rel2 = hd2.relation().transferToDevice();
     rel1.print_stats();
     tt.finish();
 
-    Naive_Join joinObj;//(hd1.getX(), (hd1.getY() > hd1.getX() ? hd1.getY() : hd1.getX()), hd1.getY());
-    Relation out = joinObj.join(rel1, rel2);
+    MMUL_Join joinObj(hd1.getX(), (hd1.getY() > hd1.getX() ? hd1.getY() : hd1.getX()), hd1.getY());
+    Relation<2> out = joinObj.join(rel1, rel2);
     out.print_stats();
-    out.free();
+    out.free_gpu();
 
-    rel1.free();
-    rel2.free();
+    rel1.free_gpu();
+    rel2.free_gpu();
 
     cudaDeviceReset();
 }
 
 void dense_experiment() {
+    run_dense(1000, 1000, 1000);
     run_txt("./data/gplus_combined.txt");
 
     // TODO make into a test

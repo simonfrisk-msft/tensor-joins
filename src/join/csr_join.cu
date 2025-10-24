@@ -3,7 +3,8 @@
 #include <cuda_runtime.h>
 #include <sstream>
 #include <cstdio>
-#include "../relation.h"
+#include "../relation/relation.cuh"
+#include "../relation/csr_relation.h"
 #include "../util.h"
 
 CSR_Join::CSR_Join(int a, int b, int c) {
@@ -12,7 +13,7 @@ CSR_Join::CSR_Join(int a, int b, int c) {
     dimC = c;
 }
 
-Relation CSR_Join::join(Relation rel1, Relation rel2) {
+Relation<2> CSR_Join::join(Relation<2> rel1, Relation<2> rel2) {
     cusparseHandle_t handle;
     CUSPARSE_CHECK(cusparseCreate(&handle));    
 
@@ -103,9 +104,9 @@ Relation CSR_Join::join(Relation rel1, Relation rel2) {
         CUDA_R_32F, CUSPARSE_SPGEMM_DEFAULT,
         spgemmDesc));
 
-    Relation outRel = outcsr.toRelation();
+    Relation<2> outRel = outcsr.toRelation();
 
-    t.lap("Matrix to Relation");
+    t.lap("Matrix to relation");
 
     // Cleanup
     CUSPARSE_CHECK(cusparseDestroySpMat(mat1));
